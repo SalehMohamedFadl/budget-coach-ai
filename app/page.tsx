@@ -362,9 +362,17 @@ export default function Home() {
       });
 
       const data = await res.json();
-      if (data.success) {
+      console.log('Chat API response:', data);
+      if (data.success && data.reply) {
         setChatMessages((prev) => [...prev, { sender: 'ai', text: data.reply }]);
       }
+      else {
+        setChatMessages((prev) => [...prev,
+          {
+            sender: 'ai',
+            text: data.error || 'No response received from AI'
+          }
+        ]);}
     } catch (err) {
       setChatMessages((prev) => [...prev, { sender: 'ai', text: 'Error' }]);
     } finally {

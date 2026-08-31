@@ -18,7 +18,13 @@ export async function POST(request: Request) {
     const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
 
     if (!n8nWebhookUrl) {
-      throw new Error('N8N_WEBHOOK_URL is not configured');
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'N8N_WEBHOOK_URL is not configured',
+        },
+        { status: 500 }
+      );
     }
 
     const payload = {
@@ -30,9 +36,8 @@ export async function POST(request: Request) {
       budget: {
         monthlyLimit: Number(budgetLimit || 0),
         totalSpent: Number(totalSpent || 0),
-        remaining: Number(budgetLimit || 0) - Number(totalSpent || 0),
-        isOverBudget:
-          Number(totalSpent || 0) > Number(budgetLimit || 0),
+        remaining:
+          Number(budgetLimit || 0) - Number(totalSpent || 0),
       },
 
       transactionHistory: transactionHistory || [],
@@ -48,40 +53,34 @@ export async function POST(request: Request) {
       cache: 'no-store',
     });
 
-    const rawText = await response.text();
+    const reply = await response.text();
+
+    console.log('n8n status:', response.status);
+    console.log('n8n reply:', reply);
 
     if (!response.ok) {
-      console.error('n8n error:', rawText);
-
       return NextResponse.json(
         {
           success: false,
-          error: rawText || `n8n returned ${response.status}`,
+          error: reply || `n8n error ${response.status}`,
         },
         { status: response.status }
       );
     }
 
-    let data: any;
-
-    try {
-      data = JSON.parse(rawText);
-    } catch {
-      data = rawText;
+    if (!reply || !reply.trim()) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'n8n returned an empty response',
+        },
+        { status: 502 }
+      );
     }
-
-    const aiReply =
-      typeof data === 'string'
-        ? data
-        : data.output ||
-          data.reply ||
-          data.text ||
-          data.message ||
-          JSON.stringify(data);
 
     return NextResponse.json({
       success: true,
-      reply: aiReply,
+      reply: reply.trim(),
     });
 
   } catch (error: any) {
@@ -90,7 +89,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Unknown error',
+        error: error?.message || 'Unknown server error',
       },
       { status: 500 }
     );
